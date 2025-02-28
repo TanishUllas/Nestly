@@ -45,5 +45,13 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- ✅ Allow network requests for API calls -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+	    <key>NSAllowsArbitraryLoads</key>
+	    <true/>
+	</dict>
+
 </dict>
 </plist>
