@@ -6,22 +6,16 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
-app.use(cors({ origin: "*" })); // ✅ Allow all origins for API requests
+app.use(cors({ origin: "*" })); // ✅ Allow all origins
 app.use(express.json());
 
-// ✅ Log Every Incoming Request for Debugging
+// ✅ Log Every Incoming Request
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} request to ${req.url}`);
   next();
 });
 
-// ✅ Root Route Check
-app.get("/", (req, res) => {
-  console.log("✅ GET / was requested!");
-  res.json({ message: "✅ API is running successfully!" });
-});
-
-// ✅ PostgreSQL Database Connection with Auto-Reconnect
+// ✅ PostgreSQL Database Connection
 const pool = new Pool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -29,31 +23,16 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 5432,
   ssl: { rejectUnauthorized: false },
-  max: 10, // ✅ Prevents connection overload
-  idleTimeoutMillis: 30000, // ✅ Closes idle connections after 30s
-  connectionTimeoutMillis: 5000, // ✅ Timeout if connection takes too long
 });
 
-// ✅ Auto-Reconnect on Database Errors
-pool.on("error", (err) => {
-  console.error("❌ Unexpected Database Error:", err);
-  console.log("🔄 Attempting to reconnect in 5 seconds...");
-  setTimeout(() => {
-    pool.connect().catch((error) => console.error("🔴 Reconnection Failed:", error));
-  }, 5000);
-});
-
-// ✅ Handle App Shutdown Gracefully
-process.on("exit", () => {
-  console.log("🛑 Server is shutting down. Closing database connection...");
-  pool.end();
+// ✅ Root Route Check
+app.get("/", (req, res) => {
+  res.json({ message: "✅ API is running successfully!" });
 });
 
 // ✅ User Registration
 app.post("/register", async (req, res) => {
-  console.log("📝 Registering user...");
   const { firstName, lastName, email, password, dob } = req.body;
-
   try {
     const userCheck = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userCheck.rows.length > 0) {
@@ -61,12 +40,12 @@ app.post("/register", async (req, res) => {
     }
 
     const hashedPassword = bcrypt.hashSync(password, 10);
-    await pool.query(
-      "INSERT INTO users (firstName, lastName, email, password, dob) VALUES ($1, $2, $3, $4, $5)",
+    const newUser = await pool.query(
+      "INSERT INTO users (firstName, lastName, email, password, dob) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [firstName, lastName, email, hashedPassword, dob]
     );
 
-    res.status(201).json({ message: "✅ User registered successfully" });
+    res.status(201).json({ message: "✅ User registered successfully", user: newUser.rows[0] });
   } catch (error) {
     console.error("🔥 Error in /register:", error);
     res.status(500).json({ message: "❌ Database error", error: error.message });
@@ -75,28 +54,19 @@ app.post("/register", async (req, res) => {
 
 // ✅ User Login
 app.post("/login", async (req, res) => {
-  console.log("🔑 User login attempt...");
   const { email, password } = req.body;
-
   try {
     const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-
     if (userResult.rows.length === 0) {
       return res.status(401).json({ message: "❌ User not found" });
     }
 
     const user = userResult.rows[0];
-
     if (!bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ message: "❌ Incorrect password" });
     }
 
-    const token = jwt.sign(
-      { id: user.id || user.email },
-      process.env.JWT_SECRET || "defaultsecret",
-      { expiresIn: "1h" }
-    );
-
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
     res.json({ message: "✅ Login successful", token });
   } catch (error) {
     console.error("🔥 Error in /login:", error);
@@ -104,51 +74,49 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ✅ Fetch All Visitors
-app.get("/visitors", async (req, res) => {
-  console.log("📜 Fetching all visitors...");
+// ✅ Fetch Guards by Gate
+app.get("/guards/:gate", async (req, res) => {
+  const { gate } = req.params;
   try {
-    const visitors = await pool.query("SELECT * FROM visitors");
-    res.json(visitors.rows);
+    const guards = await pool.query("SELECT * FROM guards WHERE gate = $1", [gate]);
+    res.json(guards.rows);
   } catch (error) {
-    console.error("🔥 Error fetching visitors:", error);
-    res.status(500).json({ message: "❌ Error fetching visitors", error: error.message });
+    console.error("🔥 Error fetching guards:", error);
+    res.status(500).json({ message: "❌ Error fetching guards", error: error.message });
   }
 });
 
-// ✅ Add a Visitor
-app.post("/visitors", async (req, res) => {
-  console.log("➕ Adding a visitor...");
-  const { name, relation, reason } = req.body;
+// ✅ Fetch All Guards
+app.get("/guards", async (req, res) => {
+  console.log("📜 Fetching all guards...");
 
   try {
-    await pool.query(
-      "INSERT INTO visitors (name, relation, reason) VALUES ($1, $2, $3)",
-      [name, relation, reason]
-    );
-    res.status(201).json({ message: "✅ Visitor added successfully" });
-  } catch (error) {
-    console.error("🔥 Error adding visitor:", error);
-    res.status(500).json({ message: "❌ Error adding visitor", error: error.message });
-  }
-});
+    const result = await pool.query("SELECT * FROM guards ORDER BY gate");
 
-// ✅ Delete a Visitor
-app.delete("/visitors/:id", async (req, res) => {
-  console.log("❌ Deleting a visitor...");
-  const { id } = req.params;
-
-  try {
-    const deleteResult = await pool.query("DELETE FROM visitors WHERE id = $1", [id]);
-
-    if (deleteResult.rowCount === 0) {
-      return res.status(404).json({ message: "❌ Visitor not found" });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "❌ No guards found" });
     }
 
-    res.json({ message: "✅ Visitor deleted successfully" });
+    console.log("✅ Guards fetched successfully!", result.rows);
+    res.json(result.rows);
   } catch (error) {
-    console.error("🔥 Error deleting visitor:", error);
-    res.status(500).json({ message: "❌ Error deleting visitor", error: error.message });
+    console.error("🔥 Error fetching guards:", error);
+    res.status(500).json({ message: "❌ Error fetching guards", error: error.message });
+  }
+});
+
+// ✅ Delete a Guard
+app.delete("/guards/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleteResult = await pool.query("DELETE FROM guards WHERE id = $1", [id]);
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ message: "❌ Guard not found" });
+    }
+    res.json({ message: "✅ Guard deleted successfully" });
+  } catch (error) {
+    console.error("🔥 Error deleting guard:", error);
+    res.status(500).json({ message: "❌ Error deleting guard", error: error.message });
   }
 });
 
