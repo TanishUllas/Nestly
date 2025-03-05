@@ -120,8 +120,57 @@ app.delete("/guards/:id", async (req, res) => {
   }
 });
 
+// ✅ Add Visitor to `myvisitors`
+app.post("/myvisitors", async (req, res) => {
+  console.log("➕ Adding a visitor to myvisitors...");
+  const { name, category } = req.body;
+
+  try {
+    const newVisitor = await pool.query(
+      "INSERT INTO myvisitors (name, category) VALUES ($1, $2) RETURNING *",
+      [name, category]
+    );
+    res.status(201).json({ message: "✅ My Visitor added successfully!", visitor: newVisitor.rows[0] });
+  } catch (error) {
+    console.error("🔥 Error adding myvisitor:", error);
+    res.status(500).json({ message: "❌ Error adding myvisitor", error: error.message });
+  }
+});
+
+// ✅ Fetch All `myvisitors`
+app.get("/myvisitors", async (req, res) => {
+  console.log("📜 Fetching all myvisitors...");
+  try {
+    const visitors = await pool.query("SELECT * FROM myvisitors ORDER BY created_at DESC");
+    res.json(visitors.rows);
+  } catch (error) {
+    console.error("🔥 Error fetching myvisitors:", error);
+    res.status(500).json({ message: "❌ Error fetching myvisitors", error: error.message });
+  }
+});
+
+
+// ✅ Delete a `myvisitor`
+app.delete("/myvisitors/:id", async (req, res) => {
+  console.log("❌ Deleting a myvisitor...");
+  const { id } = req.params;
+
+  try {
+    const deleteResult = await pool.query("DELETE FROM myvisitors WHERE id = $1", [id]);
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ message: "❌ My Visitor not found" });
+    }
+
+    res.json({ message: "✅ My Visitor deleted successfully" });
+  } catch (error) {
+    console.error("🔥 Error deleting myvisitor:", error);
+    res.status(500).json({ message: "❌ Error deleting myvisitor", error: error.message });
+  }
+});
+
 // ✅ Start Server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
