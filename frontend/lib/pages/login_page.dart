@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:nestly/services/api_service.dart'; // ✅ Import API service
+import 'package:nestly/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,9 +12,30 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  bool rememberMe = false; // ✅ State for "Remember Me" checkbox
-  bool isLoading = false; // ✅ Loading state to disable button
+  bool rememberMe = false; // ✅ "Remember Me" state
+  bool isLoading = false; // ✅ Loading state
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedEmail();
+  }
+
+  // ✅ Load saved email if "Remember Me" was checked
+  Future<void> _loadSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? savedEmail = prefs.getString("savedEmail");
+    bool savedRememberMe = prefs.getBool("rememberMe") ?? false;
+
+    if (savedEmail != null && savedRememberMe) {
+      setState(() {
+        emailController.text = savedEmail;
+        rememberMe = savedRememberMe;
+      });
+    }
+  }
+
+  // ✅ Handle Login Process
   void _login() async {
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
@@ -27,20 +49,53 @@ class _LoginPageState extends State<LoginPage> {
       isLoading = true; // ✅ Show loading state
     });
 
-    print("🟡 Attempting login for: $email"); // ✅ Debugging
+    print("🟡 Attempting login for: $email");
 
     try {
-      String response = await ApiService.loginUser(email, password);
-      print("🟢 API Response: $response"); // ✅ Debugging API response
+      final response = await ApiService.loginUser(email, password);
 
-      if (response == "success") {
-        _showMessage("✅ Login Successful!", success: true);
-        Navigator.pushNamed(context, '/home_dashboard');
+      if (response.containsKey("error")) {
+        _showMessage(response["error"] ?? "❌ Unexpected error.");
       } else {
-        _showMessage(response);
+        final user = response["user"] ?? {};
+        final String? token = response["token"];
+
+        if (user.isNotEmpty && token != null) {
+          final int userId = user["id"] ?? 0;
+
+          if (userId > 0) {
+            // ✅ Save userId & token
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt("userId", userId);
+            await prefs.setString("token", token);
+
+            // ✅ Save email if "Remember Me" is checked
+            if (rememberMe) {
+              await prefs.setString("savedEmail", email);
+              await prefs.setBool("rememberMe", true);
+            } else {
+              await prefs.remove("savedEmail");
+              await prefs.setBool("rememberMe", false);
+            }
+
+            _showMessage("✅ Login Successful!", success: true);
+
+            // ✅ Navigate to HomeDashboard with `userId`
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home_dashboard',
+              arguments: userId,
+              (route) => false, // Clears navigation stack
+            );
+          } else {
+            _showMessage("❌ Invalid user data. Please try again.");
+          }
+        } else {
+          _showMessage("❌ Server error. Try again.");
+        }
       }
     } catch (error) {
-      print("🔥 Error during login: $error"); // ✅ Debugging errors
+      print("🔥 Error during login: $error");
       _showMessage("❌ Login failed. Check console for details.");
     } finally {
       setState(() {
@@ -49,6 +104,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // ✅ Show Snackbar Message
   void _showMessage(String message, {bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -92,6 +148,8 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 40),
+
+                // ✅ Email Input Field
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -102,6 +160,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 SizedBox(height: 16),
+
+                // ✅ Password Input Field
                 TextField(
                   controller: passwordController,
                   obscureText: true,
@@ -112,6 +172,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 SizedBox(height: 16),
+
+                // ✅ "Remember Me" Checkbox
                 Row(
                   children: [
                     Checkbox(
@@ -129,14 +191,16 @@ class _LoginPageState extends State<LoginPage> {
                   ],
                 ),
                 SizedBox(height: 30),
+
+                // ✅ Login Button
                 ElevatedButton(
-                  onPressed: isLoading ? null : _login, // ✅ Disable when loading
+                  onPressed: isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueGrey[700],
                     padding: EdgeInsets.symmetric(vertical: 15),
                   ),
                   child: isLoading
-                      ? CircularProgressIndicator(color: Colors.lightBlue[100]) // ✅ Show loading
+                      ? CircularProgressIndicator(color: Colors.lightBlue[100])
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -156,6 +220,8 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                 ),
                 SizedBox(height: 16),
+
+                // ✅ Navigate to Registration Page
                 TextButton(
                   onPressed: () {
                     Navigator.pushNamed(context, '/register');

@@ -1,105 +1,104 @@
 import 'package:flutter/material.dart';
+import 'package:nestly/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+class ProfilePage extends StatefulWidget {
+  final int userId;
+
+  const ProfilePage({super.key, required this.userId});
+
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController dobController = TextEditingController();
+  bool isLoading = true;
+  bool isUpdating = false;
+  String errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final userData = await ApiService.fetchUser(widget.userId);
+      if (userData.containsKey("error")) {
+        setState(() {
+          errorMessage = userData["error"];
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          firstNameController.text = userData['firstName'] ?? '';
+          lastNameController.text = userData['lastName'] ?? '';
+          emailController.text = userData['email'] ?? '';
+          dobController.text = userData['dob'] ?? '';
+          isLoading = false;
+        });
+      }
+    } catch (error) {
+      setState(() {
+        errorMessage = "❌ Error fetching user details.";
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("userId");
+    Navigator.pushReplacementNamed(context, "/");
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blueGrey[700],
-        title: Text('Profile', style: TextStyle(color: Colors.white)),
-        leading: IconButton(
-          icon: Icon(Icons.close, color: Colors.white),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Container(
-          color: Colors.lightBlue[100],
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 80, color: Colors.blueGrey[700]),
-              ),
-              SizedBox(height: 20),
-              ProfileField(label: 'First Name'),
-              ProfileField(label: 'Last Name'),
-              ProfileField(label: 'Password...', isPassword: true),
-              ProfileField(label: 'Email...'),
-              ProfileField(label: 'DOB'),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      // Save changes logic
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.lightBlue[100],
-                      foregroundColor: Colors.blueGrey[700], // Text and icon color
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.blueGrey[700]!),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                    ),
-                    child: Text('Save Changes'),
+      appBar: AppBar(title: const Text("Profile")),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : errorMessage.isNotEmpty
+              ? Center(child: Text(errorMessage, style: const TextStyle(color: Colors.red)))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      ProfileField(label: "First Name", controller: firstNameController),
+                      ProfileField(label: "Last Name", controller: lastNameController),
+                      ProfileField(label: "Email", controller: emailController, isReadOnly: true),
+                      ProfileField(label: "DOB", controller: dobController),
+                      ElevatedButton(onPressed: _logout, child: const Text("Logout")),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Discard changes logic
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.lightBlue[100],
-                      foregroundColor: Colors.blueGrey[700], // Text and icon color
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.blueGrey[700]!),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                    ),
-                    child: Text('Discard Changes'),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/');
-                },
-                child: Text('LOGOUT', style: TextStyle(color: Colors.blueGrey[700])),
-              ),
-            ],
-          ),
-        ),
-      ),
+                ),
     );
   }
 }
 
+// ✅ ProfileField Widget
 class ProfileField extends StatelessWidget {
   final String label;
-  final bool isPassword;
+  final TextEditingController controller;
+  final bool isReadOnly;
 
-  const ProfileField({super.key, required this.label, this.isPassword = false});
+  const ProfileField({super.key, required this.label, required this.controller, this.isReadOnly = false});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextField(
-        obscureText: isPassword,
+        controller: controller,
+        readOnly: isReadOnly,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          suffixIcon: Icon(Icons.edit, color: Colors.blueGrey[700]),
         ),
       ),
     );

@@ -1,15 +1,15 @@
 import 'dart:convert';
-import 'dart:io'; // ✅ Handles network errors
-import 'dart:async'; // ✅ Fixes TimeoutException
+import 'dart:io';
+import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String apiUrl = "https://nestly.onrender.com"; // ✅ Backend URL
 
-  // ✅ Login API Call
-  static Future<String> loginUser(String email, String password) async {
+  // ✅ Login API Call (Extracts User ID from JWT Token)
+  static Future<Map<String, dynamic>> loginUser(String email, String password) async {
     final Uri url = Uri.parse("$apiUrl/login");
-
     print("🟡 Sending login request to: $url with email: $email");
 
     try {
@@ -22,68 +22,43 @@ class ApiService {
       print("🔵 API Response: ${response.statusCode} ${response.body}");
 
       if (response.statusCode == 200) {
-        print("✅ Login Successful!");
-        return "success";
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        if (responseData.containsKey("token")) {
+          final String token = responseData["token"];
+          final int userId = _extractUserIdFromToken(token);
+
+          // ✅ Store token & userId
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt("userId", userId);
+          await prefs.setString("token", token);
+
+          return {"user": {"id": userId}, "token": token};
+        } else {
+          return {"error": "Invalid response from server."};
+        }
       } else {
-        final errorMessage = jsonDecode(response.body)['message'];
-        print("❌ Login Failed: $errorMessage");
-        return errorMessage;
+        return {"error": _extractErrorMessage(response.body)};
       }
     } catch (error) {
-      print("🔥 Error during API call: $error");
-      return _handleNetworkError(error);
+      print("🔥 Error during login: $error");
+      return {"error": _handleNetworkError(error)};
     }
   }
 
-  // ✅ Register API Call
-  static Future<String> registerUser(String firstName, String lastName, String email, String password, String dob) async {
-    final Uri url = Uri.parse("$apiUrl/register");
-
-    print("🟡 Sending register request to: $url with email: $email");
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "firstName": firstName,
-          "lastName": lastName,
-          "email": email,
-          "password": password,
-          "dob": dob
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      print("🔵 API Response: ${response.statusCode} ${response.body}");
-
-      if (response.statusCode == 201) {
-        print("✅ Registration Successful!");
-        return "success";
-      } else {
-        final errorMessage = jsonDecode(response.body)['message'];
-        print("❌ Registration Failed: $errorMessage");
-        return errorMessage;
-      }
-    } catch (error) {
-      print("🔥 Error during API call: $error");
-      return _handleNetworkError(error);
-    }
-  }
-
-  // ✅ Fetch Guards
+  // ✅ Fetch Guards (No Authentication Required)
   static Future<List<Map<String, dynamic>>> fetchGuards() async {
     final Uri url = Uri.parse("$apiUrl/guards");
-
     print("🟡 Fetching guards from: $url");
 
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 10));
+      print("🔵 API Response: ${response.statusCode}");
 
-      if (response.statusCode == 200) {
-        print("✅ Guards fetched successfully!");
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
         return List<Map<String, dynamic>>.from(jsonDecode(response.body));
       } else {
-        throw Exception("❌ Failed to fetch guards");
+        return [];
       }
     } catch (error) {
       print("🔥 Error fetching guards: $error");
@@ -91,167 +66,124 @@ class ApiService {
     }
   }
 
-  // ✅ Fetch Visitors
-  static Future<List<Map<String, dynamic>>> fetchVisitors() async {
-    final Uri url = Uri.parse("$apiUrl/visitors");
+  // ✅ Fetch My Visitors (Requires Authentication)
+  static Future<List<Map<String, dynamic>>> fetchMyVisitors() async {
+    final Uri url = Uri.parse("$apiUrl/myvisitors");
+    final String? token = await _getToken();
 
-    print("🟡 Fetching visitors from: $url");
+    if (token == null) {
+      return [];
+    }
+
+    print("🟡 Fetching my visitors from: $url");
 
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await http.get(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
-        print("✅ Visitors fetched successfully!");
+      print("🔵 API Response: ${response.statusCode}");
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
         return List<Map<String, dynamic>>.from(jsonDecode(response.body));
       } else {
-        throw Exception("❌ Failed to fetch visitors");
+        return [];
       }
     } catch (error) {
-      print("🔥 Error fetching visitors: $error");
+      print("🔥 Error fetching my visitors: $error");
       return [];
     }
   }
 
-  // ✅ Add Visitor
-  static Future<String> addVisitor(String name, String relation, String reason) async {
-    final Uri url = Uri.parse("$apiUrl/visitors");
+  // ✅ Fetch User Profile (Requires Authentication)
+  static Future<Map<String, dynamic>> fetchUser(int userId) async {
+    final String? token = await _getToken();
 
-    print("🟡 Adding visitor: $name");
+    if (token == null) {
+      return {"error": "Unauthorized: No token found"};
+    }
+
+    final Uri url = Uri.parse("$apiUrl/users/$userId");
+    print("🟡 Fetching user profile: ID=$userId");
 
     try {
-      final response = await http.post(
+      final response = await http.get(
         url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"name": name, "relation": relation, "reason": reason}),
+        headers: {"Authorization": "Bearer $token"},
       ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 201) {
-        print("✅ Visitor added successfully!");
-        return "success";
-      } else {
-        return jsonDecode(response.body)['message'];
-      }
-    } catch (error) {
-      print("🔥 Error adding visitor: $error");
-      return _handleNetworkError(error);
-    }
-  }
-
-  // ✅ Delete Visitor
-  static Future<String> deleteVisitor(int id) async {
-    final Uri url = Uri.parse("$apiUrl/visitors/$id");
-
-    print("🟡 Deleting visitor with ID: $id");
-
-    try {
-      final response = await http.delete(url).timeout(const Duration(seconds: 10));
+      print("🔵 API Response: ${response.statusCode}");
 
       if (response.statusCode == 200) {
-        print("✅ Visitor deleted successfully!");
-        return "success";
+        return jsonDecode(response.body);
       } else {
-        return jsonDecode(response.body)['message'];
+        return {"error": _extractErrorMessage(response.body)};
       }
     } catch (error) {
-      print("🔥 Error deleting visitor: $error");
-      return _handleNetworkError(error);
+      print("🔥 Error fetching user: $error");
+      return {"error": _handleNetworkError(error)};
     }
   }
 
-  // ✅ Fetch My Visitors
-  static Future<List<Map<String, dynamic>>> fetchMyVisitors() async {
-  final Uri url = Uri.parse("$apiUrl/myvisitors");
-
-  print("🟡 Fetching my visitors from: $url");
-
-  try {
-    final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-    print("🔵 API Response Code: ${response.statusCode}");
-    print("🔵 API Response Body: ${response.body}");
-
-    if (response.statusCode == 200) {
-      List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(jsonDecode(response.body));
-
-      if (data.isEmpty) {
-        print("❌ No visitors found in the database.");
-      } else {
-        print("✅ My Visitors fetched successfully!");
-      }
-
-      return data;
-    } else {
-      print("❌ Failed to fetch my visitors. Status Code: ${response.statusCode}");
-      return [];
-    }
-  } catch (error) {
-    print("🔥 Error fetching my visitors: $error");
-    return [];
-  }
-}
-
-
-  // ✅ Add My Visitor
-  static Future<String> addMyVisitor(String name, String category) async {
-    final Uri url = Uri.parse("$apiUrl/myvisitors");
-
-    print("🟡 Adding my visitor: $name");
-
+  // ✅ Extract User ID from JWT Token
+  static int _extractUserIdFromToken(String token) {
     try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"name": name, "category": category}),
-      ).timeout(const Duration(seconds: 10));
+      final parts = token.split(".");
+      if (parts.length != 3) return 0;
 
-      if (response.statusCode == 201) {
-        print("✅ My Visitor added successfully!");
-        return "success";
-      } else {
-        return jsonDecode(response.body)['message'];
-      }
-    } catch (error) {
-      print("🔥 Error adding my visitor: $error");
-      return _handleNetworkError(error);
+      final payload = jsonDecode(utf8.decode(base64Url.decode(_normalizeBase64(parts[1]))));
+      print("🔍 Decoded JWT Payload: $payload"); // ✅ Debugging
+
+      return payload["id"] ?? 0;
+    } catch (e) {
+      print("❌ Error decoding token: $e");
+      return 0;
     }
   }
 
-  // ✅ Delete My Visitor
-  static Future<String> deleteMyVisitor(int id) async {
-    final Uri url = Uri.parse("$apiUrl/myvisitors/$id");
+  // ✅ Normalize Base64 (Fixes Padding Issues)
+  static String _normalizeBase64(String base64String) {
+    while (base64String.length % 4 != 0) {
+      base64String += "=";
+    }
+    return base64String;
+  }
 
-    print("🟡 Deleting my visitor with ID: $id");
+  // ✅ Get Token from SharedPreferences
+  static Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("token");
+  }
 
+  // ✅ Get User ID from SharedPreferences
+  static Future<int> _getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("userId") ?? 0;
+  }
+
+  // ✅ Extract Error Message from Response
+  static String _extractErrorMessage(String responseBody) {
     try {
-      final response = await http.delete(url).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        print("✅ My Visitor deleted successfully!");
-        return "success";
-      } else {
-        return jsonDecode(response.body)['message'];
-      }
-    } catch (error) {
-      print("🔥 Error deleting my visitor: $error");
-      return _handleNetworkError(error);
+      final decoded = jsonDecode(responseBody);
+      return decoded['message'] ?? "Unknown error";
+    } catch (e) {
+      return "Unknown error occurred.";
     }
   }
 
   // ✅ Handle Network Errors
   static String _handleNetworkError(dynamic error) {
     if (error is SocketException) {
-      print("❌ No internet connection or server is down.");
-      return "❌ Server not reachable. Check Render status.";
+      return "❌ Server not reachable. Check internet.";
     } else if (error is TimeoutException) {
-      print("❌ Request timed out.");
-      return "❌ Network timeout. Check internet connection.";
+      return "❌ Request timed out.";
     } else if (error is HttpException) {
-      print("❌ HTTP error: ${error.message}");
       return "❌ HTTP error occurred.";
+    } else if (error is FormatException) {
+      return "❌ Invalid server response.";
     } else {
-      print("❌ Unknown error: $error");
-      return "❌ Network error. Check internet & try again.";
+      return "❌ Network error.";
     }
   }
 }
-
