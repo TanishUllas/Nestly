@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
-app.use(cors({ origin: "*" })); // ✅ Allow all origins
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // ✅ Log Every Incoming Request
@@ -41,7 +41,7 @@ app.post("/register", async (req, res) => {
 
     const hashedPassword = bcrypt.hashSync(password, 10);
     const newUser = await pool.query(
-      "INSERT INTO users (firstName, lastName, email, password, dob) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      "INSERT INTO users (firstName, lastName, email, password, dob) VALUES ($1, $2, $3, $4, $5) RETURNING id, firstName, lastName, email, dob",
       [firstName, lastName, email, hashedPassword, dob]
     );
 
@@ -67,37 +67,41 @@ app.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.json({ message: "✅ Login successful", token });
+
+    res.json({ message: "✅ Login successful", token, user });
   } catch (error) {
     console.error("🔥 Error in /login:", error);
     res.status(500).json({ message: "❌ Database error", error: error.message });
   }
 });
 
-// ✅ Fetch Guards by Gate
-app.get("/guards/:gate", async (req, res) => {
-  const { gate } = req.params;
+app.get("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log("🟡 Fetching user with ID:", id); // ✅ Debugging
+
   try {
-    const guards = await pool.query("SELECT * FROM guards WHERE gate = $1", [gate]);
-    res.json(guards.rows);
+    const result = await pool.query(
+      "SELECT id, firstName, lastName, email, dob FROM users WHERE id = $1",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      console.log("❌ User not found in DB for ID:", id); // ✅ Debugging
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+    console.log("✅ User found:", result.rows[0]); // ✅ Debugging
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error("🔥 Error fetching guards:", error);
-    res.status(500).json({ message: "❌ Error fetching guards", error: error.message });
+    console.error("🔥 Error fetching user:", error);
+    res.status(500).json({ message: "❌ Error fetching user", error: error.message });
   }
 });
 
 // ✅ Fetch All Guards
 app.get("/guards", async (req, res) => {
-  console.log("📜 Fetching all guards...");
-
   try {
     const result = await pool.query("SELECT * FROM guards ORDER BY gate");
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "❌ No guards found" });
-    }
-
-    console.log("✅ Guards fetched successfully!", result.rows);
     res.json(result.rows);
   } catch (error) {
     console.error("🔥 Error fetching guards:", error);
@@ -107,9 +111,8 @@ app.get("/guards", async (req, res) => {
 
 // ✅ Delete a Guard
 app.delete("/guards/:id", async (req, res) => {
-  const { id } = req.params;
   try {
-    const deleteResult = await pool.query("DELETE FROM guards WHERE id = $1", [id]);
+    const deleteResult = await pool.query("DELETE FROM guards WHERE id = $1", [req.params.id]);
     if (deleteResult.rowCount === 0) {
       return res.status(404).json({ message: "❌ Guard not found" });
     }
@@ -120,26 +123,8 @@ app.delete("/guards/:id", async (req, res) => {
   }
 });
 
-// ✅ Add Visitor to `myvisitors`
-app.post("/myvisitors", async (req, res) => {
-  console.log("➕ Adding a visitor to myvisitors...");
-  const { name, category } = req.body;
-
-  try {
-    const newVisitor = await pool.query(
-      "INSERT INTO myvisitors (name, category) VALUES ($1, $2) RETURNING *",
-      [name, category]
-    );
-    res.status(201).json({ message: "✅ My Visitor added successfully!", visitor: newVisitor.rows[0] });
-  } catch (error) {
-    console.error("🔥 Error adding myvisitor:", error);
-    res.status(500).json({ message: "❌ Error adding myvisitor", error: error.message });
-  }
-});
-
 // ✅ Fetch All `myvisitors`
 app.get("/myvisitors", async (req, res) => {
-  console.log("📜 Fetching all myvisitors...");
   try {
     const visitors = await pool.query("SELECT * FROM myvisitors ORDER BY created_at DESC");
     res.json(visitors.rows);
@@ -149,19 +134,13 @@ app.get("/myvisitors", async (req, res) => {
   }
 });
 
-
 // ✅ Delete a `myvisitor`
 app.delete("/myvisitors/:id", async (req, res) => {
-  console.log("❌ Deleting a myvisitor...");
-  const { id } = req.params;
-
   try {
-    const deleteResult = await pool.query("DELETE FROM myvisitors WHERE id = $1", [id]);
-
+    const deleteResult = await pool.query("DELETE FROM myvisitors WHERE id = $1", [req.params.id]);
     if (deleteResult.rowCount === 0) {
       return res.status(404).json({ message: "❌ My Visitor not found" });
     }
-
     res.json({ message: "✅ My Visitor deleted successfully" });
   } catch (error) {
     console.error("🔥 Error deleting myvisitor:", error);

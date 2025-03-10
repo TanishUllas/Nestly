@@ -98,33 +98,29 @@ class ApiService {
 
   // ✅ Fetch User Profile (Requires Authentication)
   static Future<Map<String, dynamic>> fetchUser(int userId) async {
-    final String? token = await _getToken();
+  final Uri url = Uri.parse("$apiUrl/users/$userId");
+  final String? token = await _getToken();
 
-    if (token == null) {
-      return {"error": "Unauthorized: No token found"};
+  print("🟡 Fetching user profile from: $url with token: $token"); // ✅ Debugging
+
+  try {
+    final response = await http.get(
+      url,
+      headers: {"Authorization": "Bearer $token"},
+    ).timeout(const Duration(seconds: 10));
+
+    print("🔵 API Response: ${response.statusCode} ${response.body}"); // ✅ Debugging
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      return {"error": _extractErrorMessage(response.body)};
     }
-
-    final Uri url = Uri.parse("$apiUrl/users/$userId");
-    print("🟡 Fetching user profile: ID=$userId");
-
-    try {
-      final response = await http.get(
-        url,
-        headers: {"Authorization": "Bearer $token"},
-      ).timeout(const Duration(seconds: 10));
-
-      print("🔵 API Response: ${response.statusCode}");
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {"error": _extractErrorMessage(response.body)};
-      }
-    } catch (error) {
-      print("🔥 Error fetching user: $error");
-      return {"error": _handleNetworkError(error)};
-    }
+  } catch (error) {
+    print("🔥 Error fetching user: $error");
+    return {"error": _handleNetworkError(error)};
   }
+}
 
   // ✅ Extract User ID from JWT Token
   static int _extractUserIdFromToken(String token) {
