@@ -153,7 +153,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                       // ✅ Password Field (Optional)
                       ProfileField(
-                        label: "New Password (Optional)",
+                        label: "New Password",
                         controller: passwordController,
                         isPassword: true,
                       ),
