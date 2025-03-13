@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:nestly/services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfilePage extends StatefulWidget {
-  final int userId;
+  final int userId; // ✅ Requires userId
 
   const ProfilePage({super.key, required this.userId});
 
@@ -26,6 +25,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserData();
   }
 
+  // ✅ Load User Data
   Future<void> _loadUserData() async {
     try {
       final userData = await ApiService.fetchUser(widget.userId);
@@ -34,12 +34,17 @@ class _ProfilePageState extends State<ProfilePage> {
           errorMessage = userData["error"];
           isLoading = false;
         });
+      } else if (userData.isNotEmpty) {
+        setState(() {
+          firstNameController.text = userData['firstname'] ?? '';
+          lastNameController.text = userData['lastname'] ?? '';
+          emailController.text = userData['email'] ?? '';
+          dobController.text = ApiService.formatDate(userData['dob']);
+          isLoading = false;
+        });
       } else {
         setState(() {
-          firstNameController.text = userData['firstName'] ?? '';
-          lastNameController.text = userData['lastName'] ?? '';
-          emailController.text = userData['email'] ?? '';
-          dobController.text = userData['dob'] ?? '';
+          errorMessage = "❌ Failed to load user data.";
           isLoading = false;
         });
       }
@@ -51,16 +56,64 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("userId");
-    Navigator.pushReplacementNamed(context, "/");
+  // ✅ Update User Profile
+  Future<void> _updateUser() async {
+    if (firstNameController.text.isEmpty || lastNameController.text.isEmpty || dobController.text.isEmpty) {
+      _showMessage("❌ Fields cannot be empty");
+      return;
+    }
+
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      final response = await ApiService.updateUser(
+        widget.userId,
+        firstNameController.text,
+        lastNameController.text,
+        emailController.text,
+        dobController.text,
+      );
+
+      setState(() {
+        isUpdating = false;
+      });
+
+      if (response.containsKey("error")) {
+        _showMessage(response["error"]);
+      } else {
+        _showMessage("✅ Profile updated successfully", success: true);
+      }
+    } catch (error) {
+      setState(() {
+        isUpdating = false;
+      });
+      _showMessage("❌ Failed to update profile. Please try again.");
+    }
+  }
+
+  // ✅ Show Snackbar Message
+  void _showMessage(String message, {bool success = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Profile")),
+      appBar: AppBar(
+        backgroundColor: Colors.blueGrey[700],
+        title: const Text("Profile", style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : errorMessage.isNotEmpty
@@ -69,11 +122,24 @@ class _ProfilePageState extends State<ProfilePage> {
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
+                      const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 80, color: Colors.blueGrey)),
+                      const SizedBox(height: 20),
                       ProfileField(label: "First Name", controller: firstNameController),
                       ProfileField(label: "Last Name", controller: lastNameController),
                       ProfileField(label: "Email", controller: emailController, isReadOnly: true),
                       ProfileField(label: "DOB", controller: dobController),
-                      ElevatedButton(onPressed: _logout, child: const Text("Logout")),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: isUpdating ? null : _updateUser,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey[700],
+                          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
+                        ),
+                        child: isUpdating
+                            ? const SizedBox(
+                                height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                            : const Text("Save Changes", style: TextStyle(color: Colors.white)),
+                      ),
                     ],
                   ),
                 ),
@@ -99,6 +165,7 @@ class ProfileField extends StatelessWidget {
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          suffixIcon: isReadOnly ? null : const Icon(Icons.edit, color: Colors.blueGrey),
         ),
       ),
     );

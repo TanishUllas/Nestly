@@ -26,7 +26,7 @@ class ApiService {
 
         if (responseData.containsKey("token")) {
           final String token = responseData["token"];
-          final int userId = _extractUserIdFromToken(token);
+          final int userId = responseData["user"]["id"]; // ✅ Ensure correct ID
 
           // ✅ Store token & userId
           final prefs = await SharedPreferences.getInstance();
@@ -46,7 +46,74 @@ class ApiService {
     }
   }
 
-  // ✅ Fetch Guards (No Authentication Required)
+  // ✅ Fetch User Profile (Uses Token for Authentication)
+  static Future<Map<String, dynamic>> fetchUser(int userId) async {
+    final Uri url = Uri.parse("$apiUrl/users/$userId");
+    final String? token = await _getToken();
+
+    print("🟡 Fetching user profile from: $url with token: $token");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      ).timeout(const Duration(seconds: 10));
+
+      print("🔵 API Response: ${response.statusCode} ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {"error": _extractErrorMessage(response.body)};
+      }
+    } catch (error) {
+      print("🔥 Error fetching user: $error");
+      return {"error": _handleNetworkError(error)};
+    }
+  }
+
+  // ✅ Update User Profile
+  static Future<Map<String, dynamic>> updateUser(
+      int userId, String firstName, String lastName, String email, String dob, [String? password]) async {
+    final Uri url = Uri.parse("$apiUrl/users/$userId");
+    final String? token = await _getToken();
+
+    print("🟡 Updating user profile: ID=$userId");
+
+    final body = {
+      "firstName": firstName,
+      "lastName": lastName,
+      "email": email,
+      "dob": dob,
+    };
+    if (password != null && password.isNotEmpty) {
+      body["password"] = password;
+    }
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+
+      print("🔵 API Response: ${response.statusCode} ${response.body}");
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {"error": _extractErrorMessage(response.body)};
+      }
+    } catch (error) {
+      print("🔥 Error updating user: $error");
+      return {"error": _handleNetworkError(error)};
+    }
+  }
+
+  // ✅ Fetch Guards
   static Future<List<Map<String, dynamic>>> fetchGuards() async {
     final Uri url = Uri.parse("$apiUrl/guards");
     print("🟡 Fetching guards from: $url");
@@ -66,7 +133,7 @@ class ApiService {
     }
   }
 
-  // ✅ Fetch My Visitors (Requires Authentication)
+  // ✅ Fetch My Visitors
   static Future<List<Map<String, dynamic>>> fetchMyVisitors() async {
     final Uri url = Uri.parse("$apiUrl/myvisitors");
     final String? token = await _getToken();
@@ -96,54 +163,10 @@ class ApiService {
     }
   }
 
-  // ✅ Fetch User Profile (Requires Authentication)
-  static Future<Map<String, dynamic>> fetchUser(int userId) async {
-  final Uri url = Uri.parse("$apiUrl/users/$userId");
-  final String? token = await _getToken();
-
-  print("🟡 Fetching user profile from: $url with token: $token"); // ✅ Debugging
-
-  try {
-    final response = await http.get(
-      url,
-      headers: {"Authorization": "Bearer $token"},
-    ).timeout(const Duration(seconds: 10));
-
-    print("🔵 API Response: ${response.statusCode} ${response.body}"); // ✅ Debugging
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      return {"error": _extractErrorMessage(response.body)};
-    }
-  } catch (error) {
-    print("🔥 Error fetching user: $error");
-    return {"error": _handleNetworkError(error)};
-  }
-}
-
-  // ✅ Extract User ID from JWT Token
-  static int _extractUserIdFromToken(String token) {
-    try {
-      final parts = token.split(".");
-      if (parts.length != 3) return 0;
-
-      final payload = jsonDecode(utf8.decode(base64Url.decode(_normalizeBase64(parts[1]))));
-      print("🔍 Decoded JWT Payload: $payload"); // ✅ Debugging
-
-      return payload["id"] ?? 0;
-    } catch (e) {
-      print("❌ Error decoding token: $e");
-      return 0;
-    }
-  }
-
-  // ✅ Normalize Base64 (Fixes Padding Issues)
-  static String _normalizeBase64(String base64String) {
-    while (base64String.length % 4 != 0) {
-      base64String += "=";
-    }
-    return base64String;
+  // ✅ Normalize Date Format (YYYY-MM-DD)
+  static String formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return "";
+    return dateString.split("T")[0]; // Removes time part
   }
 
   // ✅ Get Token from SharedPreferences

@@ -98,6 +98,43 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
+// ✅ Update User Profile
+app.put("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  const { firstName, lastName, dob } = req.body;
+  const authHeader = req.headers.authorization;
+
+  // ✅ Ensure Authorization Header Exists
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "❌ Unauthorized: No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    // ✅ Verify JWT Token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.id != id) {
+      return res.status(403).json({ message: "❌ Forbidden: You cannot update this user" });
+    }
+
+    // ✅ Perform Update in Database
+    const result = await pool.query(
+      "UPDATE users SET firstname = $1, lastname = $2, dob = $3 WHERE id = $4 RETURNING id, firstname, lastname, email, dob",
+      [firstName, lastName, dob, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+    res.json({ message: "✅ Profile updated successfully", user: result.rows[0] });
+  } catch (error) {
+    console.error("🔥 Error updating user:", error);
+    res.status(500).json({ message: "❌ Error updating user", error: error.message });
+  }
+});
+
 // ✅ Fetch All Guards
 app.get("/guards", async (req, res) => {
   try {
