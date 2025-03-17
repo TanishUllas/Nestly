@@ -10,10 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  url_launcher: ^6.2.6
   cupertino_icons: ^1.0.8
-  http: ^0.13.6  # ✅ HTTP package for API calls
-  shared_preferences: ^2.2.2  # ✅ Added shared_preferences for local storage
+  http: ^1.2.0 
+  shared_preferences: ^2.2.2  
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:

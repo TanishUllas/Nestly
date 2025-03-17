@@ -6,12 +6,13 @@ import 'pages/register_page.dart';
 import 'pages/home_dashboard.dart';
 import 'pages/sos_page.dart';
 import 'pages/call_guard_page.dart';
-import 'pages/schedule_visitor_page.dart';
 import 'pages/accept_visitor_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/pre_approval_page.dart';
 import 'pages/my_visitors_page.dart';
 import 'pages/schedule_cd_page.dart';
+import 'pages/schedule_visitor_page.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // ✅ Required for async operations
@@ -53,19 +54,24 @@ class MyApp extends StatelessWidget {
             final int? passedUserId = settings.arguments as int?;
             return MaterialPageRoute(builder: (_) => ProfilePage(userId: passedUserId ?? 0));
           case '/sos':
-            return MaterialPageRoute(builder: (_) => SOSPage());
+            final int? passedUserId = settings.arguments as int?;
+            return MaterialPageRoute(builder: (_) => SOSPage(userId: passedUserId ?? 0));
           case '/callGuard':
             return MaterialPageRoute(builder: (_) => CallGuardPage());
-          case '/scheduleVisitor':
-            return MaterialPageRoute(builder: (_) => ScheduleVisitorPage());
           case '/acceptVisitor':
             return MaterialPageRoute(builder: (_) => AcceptVisitorPage());
           case '/preApproval':
-            return MaterialPageRoute(builder: (_) => PreApprovalPage());
+            final int? passedUserId = settings.arguments as int?;
+            return MaterialPageRoute(builder: (_) => PreApprovalPage(userId: passedUserId ?? 0));
           case '/myVisitors':
-            return MaterialPageRoute(builder: (_) => MyVisitorsPage());
+            final int? passedUserId = settings.arguments as int?;
+            return MaterialPageRoute(builder: (_) => MyVisitorsPage(userId: passedUserId ?? 0));
+          case '/scheduleVisitor':
+            final int? userId = settings.arguments as int?;
+            return MaterialPageRoute(builder: (_) => ScheduleVisitorPage(userId: userId ?? 0));
           case '/scheduleCD':
-            return MaterialPageRoute(builder: (_) => ScheduleCDPage());
+            final int? userId = settings.arguments as int?;
+            return MaterialPageRoute(builder: (_) => ScheduleCDPage(userId: userId ?? 0));
           default:
             return MaterialPageRoute(builder: (_) => FirstPage());
         }

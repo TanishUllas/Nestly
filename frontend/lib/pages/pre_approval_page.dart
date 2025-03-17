@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 
 class PreApprovalPage extends StatelessWidget {
-  const PreApprovalPage({super.key});
+  final int userId; // ✅ Require userId
+
+  const PreApprovalPage({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blueGrey[700],
-        title: Text(
+        title: const Text(
           'Pre Approval',
           style: TextStyle(color: Colors.white),
         ),
         leading: IconButton(
-          icon: Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -26,23 +28,20 @@ class PreApprovalPage extends StatelessWidget {
             PreApprovalTile(
               icon: Icons.local_taxi,
               label: 'Cab',
-              onTap: () {
-                Navigator.pushNamed(context, '/scheduleCD');
-              },
+              userId: userId, // ✅ Pass userId when navigating
+              route: '/scheduleCD',
             ),
             PreApprovalTile(
               icon: Icons.delivery_dining,
               label: 'Delivery',
-              onTap: () {
-                Navigator.pushNamed(context, '/scheduleCD');
-              },
+              userId: userId, // ✅ Pass userId when navigating
+              route: '/scheduleCD',
             ),
             PreApprovalTile(
               icon: Icons.person,
               label: 'Visitor',
-              onTap: () {
-                Navigator.pushNamed(context, '/scheduleVisitor');
-              },
+              userId: userId, // ✅ Pass userId when navigating
+              route: '/scheduleVisitor',
             ),
           ],
         ),
@@ -51,26 +50,41 @@ class PreApprovalPage extends StatelessWidget {
   }
 }
 
+// ✅ **PreApprovalTile (Fixed Colors Issue)**
 class PreApprovalTile extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final String route;
+  final int userId; // ✅ Require userId
 
-  const PreApprovalTile({super.key, required this.icon, required this.label, required this.onTap});
+  const PreApprovalTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.route,
+    required this.userId, // ✅ Accept userId
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.blueGrey[800]),
+      leading: Icon(icon, color: Colors.blueGrey[800]), // ✅ No `const` here
       title: Text(
         label,
-        style: TextStyle(
-          fontSize: 16,
+        style: TextStyle( // ✅ Removed `const`
+          fontSize: 18,
           color: Colors.blueGrey[800],
+          fontWeight: FontWeight.bold,
         ),
       ),
-      trailing: Icon(Icons.arrow_forward, color: Colors.blueGrey[800]),
-      onTap: onTap,
+      trailing: Icon(Icons.arrow_forward, color: Colors.blueGrey[800]), // ✅ No `const` here
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          route,
+          arguments: userId, // ✅ Pass userId to the next page
+        );
+      },
     );
   }
 }

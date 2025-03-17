@@ -51,7 +51,12 @@ class ApiService {
     final Uri url = Uri.parse("$apiUrl/users/$userId");
     final String? token = await _getToken();
 
-    print("🟡 Fetching user profile from: $url with token: $token");
+    if (token == null) {
+      print("❌ No token found, cannot fetch user");
+      return {"error": "Unauthorized"};
+    }
+
+    print("🟡 Fetching user profile from: $url");
 
     try {
       final response = await http.get(
@@ -95,8 +100,7 @@ class ApiService {
         url,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
+          "Authorization": "Bearer $token"},
         body: jsonEncode(body),
       ).timeout(const Duration(seconds: 10));
 
@@ -133,16 +137,17 @@ class ApiService {
     }
   }
 
-  // ✅ Fetch My Visitors
-  static Future<List<Map<String, dynamic>>> fetchMyVisitors() async {
-    final Uri url = Uri.parse("$apiUrl/myvisitors");
+  // ✅ Fetch My Visitors (Based on User ID)
+  static Future<List<Map<String, dynamic>>> fetchMyVisitors(int userId) async {
+    final Uri url = Uri.parse("$apiUrl/myvisitors/user/$userId");
     final String? token = await _getToken();
 
     if (token == null) {
+      print("❌ No token found, returning empty list");
       return [];
     }
 
-    print("🟡 Fetching my visitors from: $url");
+    print("🟡 Fetching visitors for userId: $userId from: $url");
 
     try {
       final response = await http.get(
@@ -154,31 +159,35 @@ class ApiService {
 
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else if (response.statusCode == 404) {
+        print("❌ No visitors found for this user");
+        return [];
       } else {
+        print("❌ Unexpected error: ${response.body}");
         return [];
       }
     } catch (error) {
-      print("🔥 Error fetching my visitors: $error");
+      print("🔥 Error fetching visitors: $error");
       return [];
     }
   }
 
   // ✅ Normalize Date Format (YYYY-MM-DD)
-  static String formatDate(String? dateString) {
-    if (dateString == null || dateString.isEmpty) return "";
-    return dateString.split("T")[0]; // Removes time part
+static String formatDate(String? dateString) {
+  if (dateString == null || dateString.isEmpty) return "";
+  return dateString.split("T")[0]; // Removes time part
+}
+
+  // ✅ Get User ID from SharedPreferences
+  static Future<int> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("userId") ?? 0; // ✅ Return userId or 0 if not found
   }
 
   // ✅ Get Token from SharedPreferences
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString("token");
-  }
-
-  // ✅ Get User ID from SharedPreferences
-  static Future<int> _getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt("userId") ?? 0;
   }
 
   // ✅ Extract Error Message from Response

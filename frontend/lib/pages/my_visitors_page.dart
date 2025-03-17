@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:nestly/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyVisitorsPage extends StatefulWidget {
-  const MyVisitorsPage({super.key});
+  final int userId;
+
+  const MyVisitorsPage({super.key, required this.userId}); // ✅ Make userId required
 
   @override
   _MyVisitorsPageState createState() => _MyVisitorsPageState();
@@ -10,17 +13,34 @@ class MyVisitorsPage extends StatefulWidget {
 
 class _MyVisitorsPageState extends State<MyVisitorsPage> {
   List<Map<String, dynamic>> visitors = [];
+  bool isLoading = true;
+  int? userId; // ✅ Store userId
 
   @override
   void initState() {
     super.initState();
-    _loadVisitors();
+    _loadUserId();
   }
 
-  Future<void> _loadVisitors() async {
-    List<Map<String, dynamic>> fetchedVisitors = await ApiService.fetchMyVisitors();
+  // ✅ **Load User ID from Shared Preferences**
+  Future<void> _loadUserId() async {
+    int storedUserId = await ApiService.getUserId(); // ✅ Get userId from SharedPreferences
+    setState(() {
+      userId = storedUserId;
+    });
+
+    _loadVisitors(storedUserId);
+  }
+
+  // ✅ **Load Visitors for User**
+  Future<void> _loadVisitors(int userId) async {
+    print("🟡 Loading visitors for userId: $userId");
+
+    List<Map<String, dynamic>> fetchedVisitors = await ApiService.fetchMyVisitors(userId);
+
     setState(() {
       visitors = fetchedVisitors;
+      isLoading = false;
     });
   }
 
@@ -29,10 +49,7 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blueGrey[700],
-        title: const Text(
-          'My Visitors',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('My Visitors', style: TextStyle(color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -41,23 +58,27 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
       body: Container(
         color: Colors.lightBlue[100],
         padding: const EdgeInsets.all(16.0),
-        child: visitors.isEmpty
-            ? Center(child: CircularProgressIndicator()) // ✅ Show loader
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SectionTitle(title: "Family"),
-                  VisitorList(visitors: visitors.where((v) => v['category'] == 'Family').toList()),
-                  SizedBox(height: 20),
-                  SectionTitle(title: "Friends/Others"),
-                  VisitorList(visitors: visitors.where((v) => v['category'] == 'Friends/Others').toList()),
-                ],
-              ),
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator()) // ✅ Show loader
+            : visitors.isEmpty
+                ? const Center(
+                    child: Text("No visitors found", style: TextStyle(fontSize: 16, color: Colors.blueGrey)),
+                  )
+                : ListView(
+                    children: [
+                      SectionTitle(title: "Family"),
+                      VisitorList(visitors: visitors.where((v) => v['category'] == 'Family').toList()),
+                      const SizedBox(height: 20),
+                      SectionTitle(title: "Friends/Others"),
+                      VisitorList(visitors: visitors.where((v) => v['category'] != 'Family').toList()),
+                    ],
+                  ),
       ),
     );
   }
 }
 
+// ✅ **Reusable Section Title Widget**
 class SectionTitle extends StatelessWidget {
   final String title;
   const SectionTitle({super.key, required this.title});
@@ -74,6 +95,7 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
+// ✅ **Visitor List Widget**
 class VisitorList extends StatelessWidget {
   final List<Map<String, dynamic>> visitors;
   const VisitorList({super.key, required this.visitors});
@@ -81,18 +103,22 @@ class VisitorList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return visitors.isEmpty
-        ? Text("No visitors available", style: TextStyle(color: Colors.blueGrey[600]))
+        ? const Text("No visitors available", style: TextStyle(color: Colors.blueGrey))
         : ListView.builder(
             shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: visitors.length,
             itemBuilder: (context, index) {
               return Card(
-                margin: EdgeInsets.symmetric(vertical: 4.0),
+                margin: const EdgeInsets.symmetric(vertical: 4.0),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                 child: ListTile(
                   leading: Icon(Icons.account_circle, color: Colors.blueGrey[700]),
-                  title: Text(visitors[index]['name'], style: TextStyle(fontSize: 16, color: Colors.blueGrey[800])),
+                  title: Text(visitors[index]['name'], style: const TextStyle(fontSize: 16)),
+                  subtitle: Text(
+                    visitors[index]['category'] ?? "Unknown",
+                    style: TextStyle(color: Colors.blueGrey[600]),
+                  ),
                 ),
               );
             },
