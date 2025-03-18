@@ -439,6 +439,7 @@ app.get('/visitors/recent/:userId', async (req, res) => {
       "SELECT * FROM visitors WHERE user_id = ? ORDER BY arrival_time DESC LIMIT 10",
       [userId]
     );
+
     res.json(rows);
   } catch (error) {
     console.error("🔥 Error fetching recent visitors:", error);
