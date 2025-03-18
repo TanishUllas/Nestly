@@ -237,6 +237,11 @@ static Future<bool> updateVisitorStatus(int visitorId, String status) async {
   final Uri url = Uri.parse("$apiUrl/visitors/$visitorId/status");
   final String? token = await _getToken();
 
+  if (token == null) {
+    print("❌ No token found.");
+    return false;
+  }
+
   try {
     final response = await http.put(
       url,
@@ -248,64 +253,13 @@ static Future<bool> updateVisitorStatus(int visitorId, String status) async {
 
     if (response.statusCode == 200) {
       print("✅ Visitor status updated to $status successfully");
-
-      // ✅ Only add to "My Visitors" if accepted
-      if (status == "Accepted") {
-        print("✅ Visitor accepted. Now adding to My Visitors...");
-        return true;
-      }
-      return true;
+      return true; // ✅ Just return true, don't trigger extra logic
     } else {
       print("❌ Failed to update visitor status: ${response.body}");
       return false;
     }
   } catch (error) {
     print("🔥 Error updating visitor status: $error");
-    return false;
-  }
-}
-
-  static Future<bool> acceptAndAddVisitor(int visitorId, int userId) async {
-  final Uri updateUrl = Uri.parse("$apiUrl/update-visitor-status");
-  final Uri insertUrl = Uri.parse("$apiUrl/accept-and-add-visitor");
-  final String? token = await _getToken();
-
-  if (token == null) {
-    print("❌ No token found.");
-    return false;
-  }
-
-  try {
-    // ✅ Step 1: Update Visitor Status
-    final updateResponse = await http.post(
-      updateUrl,
-      headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
-      body: jsonEncode({"visitorId": visitorId, "status": "Accepted"}),
-    );
-
-    if (updateResponse.statusCode != 200) {
-      print("❌ Failed to update visitor status: ${updateResponse.body}");
-      return false;
-    }
-
-    print("✅ Visitor status updated. Now inserting into myvisitors...");
-
-    // ✅ Step 2: Insert into My Visitors
-    final insertResponse = await http.post(
-      insertUrl,
-      headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
-      body: jsonEncode({"visitorId": visitorId, "userId": userId}),
-    );
-
-    if (insertResponse.statusCode == 200) {
-      print("✅ Visitor successfully added to My Visitors.");
-      return true;
-    } else {
-      print("❌ Failed to add visitor to My Visitors: ${insertResponse.body}");
-      return false;
-    }
-  } catch (error) {
-    print("🔥 Error in acceptAndAddVisitor: $error");
     return false;
   }
 }

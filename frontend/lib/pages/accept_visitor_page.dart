@@ -170,7 +170,12 @@ class _AcceptVisitorPageState extends State<AcceptVisitorPage> {
         ),
         const SizedBox(height: 15),
         _buildMediumButton("Accept and Add to My Visitors", Colors.blueGrey, isProcessing, () {
-          _acceptAndAddVisitor(visitorId, visitor['name'], visitor['category']); // ✅ Uses new function
+          _acceptAndAddVisitor(
+                visitorId,
+                visitor['name'] ?? "Unknown",    // ✅ Ensures name is not null
+                visitor['relation'] ?? "Other"   // ✅ Ensures relation is not null (was previously 'category')
+        );
+ // ✅ Uses new function
         }),
       ],
     );
