@@ -137,6 +137,31 @@ class _ScheduleVisitorPageState extends State<ScheduleVisitorPage> {
     }
   }
 
+  List<String> _getValidTimeSlots() {
+  if (selectedDate != "Today") return timeSlots; // ✅ Show all slots for future dates
+
+  final now = DateTime.now();
+  final currentHour = now.hour;
+  final currentMinute = now.minute;
+
+  return timeSlots.where((slot) {
+    final parts = slot.split(" - ")[0].split(" ");
+    final timePart = parts[0];
+    final period = parts[1];
+
+    int hour = int.parse(timePart.split(":")[0]);
+    int minute = int.parse(timePart.split(":")[1]);
+
+    // Convert 12-hour format to 24-hour format
+    if (period == "PM" && hour != 12) hour += 12;
+    if (period == "AM" && hour == 12) hour = 0;
+
+    // ✅ Allow only future time slots
+    return (hour > currentHour) || (hour == currentHour && minute > currentMinute);
+    }).toList();
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -176,22 +201,22 @@ class _ScheduleVisitorPageState extends State<ScheduleVisitorPage> {
 
             // ✅ **Dropdown for Time Slots**
             DropdownButtonFormField<String>(
-              value: selectedTime,
-              onChanged: (newValue) {
-                setState(() => selectedTime = newValue!);
-              },
-              items: timeSlots.map((time) {
-                return DropdownMenuItem<String>(
-                  value: time,
-                  child: Text(time),
-                );
-              }).toList(),
-              decoration: InputDecoration(
-                labelText: "Select Time",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.access_time),
-              ),
-            ),
+                  value: selectedTime,
+                  onChanged: (newValue) {
+                    setState(() => selectedTime = newValue!);
+                  },
+                  items: _getValidTimeSlots().map((time) {
+                    return DropdownMenuItem<String>(
+                      value: time,
+                      child: Text(time),
+                    );
+                  }).toList(),
+                  decoration: InputDecoration(
+                    labelText: "Select Time",
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.access_time),
+                  ),
+                ),
             const SizedBox(height: 20),
 
             // ✅ **Visitor Details**

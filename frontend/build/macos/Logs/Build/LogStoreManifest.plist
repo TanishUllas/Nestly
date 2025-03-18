@@ -6,7 +6,7 @@
 	<integer>11</integer>
 	<key>logs</key>
 	<dict>
-		<key>BD486FBE-9136-4587-BE3E-A5F8DA3881DE</key>
+		<key>101B92D0-D8B9-48E6-93E2-2DCA7FC4DCAD</key>
 		<dict>
 			<key>className</key>
 			<string>IDECommandLineBuildLog</string>
@@ -15,7 +15,7 @@
 			<key>domainType</key>
 			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
 			<key>fileName</key>
-			<string>BD486FBE-9136-4587-BE3E-A5F8DA3881DE.xcactivitylog</string>
+			<string>101B92D0-D8B9-48E6-93E2-2DCA7FC4DCAD.xcactivitylog</string>
 			<key>hasPrimaryLog</key>
 			<true/>
 			<key>primaryObservable</key>
@@ -40,13 +40,55 @@
 			<key>signature</key>
 			<string>Building workspace Runner with scheme Runner and configuration Debug</string>
 			<key>timeStartedRecording</key>
-			<real>763989990.13941705</real>
+			<real>764003886.09377801</real>
 			<key>timeStoppedRecording</key>
-			<real>763990000.96107495</real>
+			<real>764003900.81052399</real>
 			<key>title</key>
 			<string>Building workspace Runner with scheme Runner and configuration Debug</string>
 			<key>uniqueIdentifier</key>
-			<string>BD486FBE-9136-4587-BE3E-A5F8DA3881DE</string>
+			<string>101B92D0-D8B9-48E6-93E2-2DCA7FC4DCAD</string>
+		</dict>
+		<key>37CCFFEC-769E-4156-89D9-1162DB6C1386</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>37CCFFEC-769E-4156-89D9-1162DB6C1386.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>0</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>Runner project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>Runner</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building workspace Runner with scheme Runner and configuration Debug</string>
+			<key>timeStartedRecording</key>
+			<real>764003528.50360703</real>
+			<key>timeStoppedRecording</key>
+			<real>764003543.57870698</real>
+			<key>title</key>
+			<string>Building workspace Runner with scheme Runner and configuration Debug</string>
+			<key>uniqueIdentifier</key>
+			<string>37CCFFEC-769E-4156-89D9-1162DB6C1386</string>
 		</dict>
 	</dict>
 </dict>

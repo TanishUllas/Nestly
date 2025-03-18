@@ -37,7 +37,7 @@ class _AcceptVisitorPageState extends State<AcceptVisitorPage> {
     }
   }
 
-  Future<void> _acceptVisitor(int visitorId) async {
+Future<void> _acceptVisitor(int visitorId) async {
     if (processingVisitors.contains(visitorId)) return;
     setState(() => processingVisitors.add(visitorId));
 
@@ -46,8 +46,9 @@ class _AcceptVisitorPageState extends State<AcceptVisitorPage> {
       setState(() {
         visitors.removeWhere((v) => v['id'] == visitorId);
       });
+      _showMessage("✅ Visitor Accepted!");
     } catch (e) {
-      _showError("Failed to accept visitor: $e");
+      _showMessage("❌ Failed to accept visitor: $e");
     } finally {
       setState(() => processingVisitors.remove(visitorId));
     }
@@ -59,13 +60,14 @@ class _AcceptVisitorPageState extends State<AcceptVisitorPage> {
 
     try {
       await ApiService.updateVisitorStatus(visitorId, "Accepted");
-      await ApiService.addToMyVisitors(widget.userId, name, category); // ✅ Updated relation -> category
+      await ApiService.addToMyVisitors(widget.userId, name, category);
 
       setState(() {
         visitors.removeWhere((v) => v['id'] == visitorId);
       });
+      _showMessage("✅ Visitor Accepted & Added to My Visitors!");
     } catch (e) {
-      _showError("Failed to accept and add visitor: $e");
+      _showMessage("❌ Failed to accept and add visitor: $e");
     } finally {
       setState(() => processingVisitors.remove(visitorId));
     }
@@ -80,11 +82,22 @@ class _AcceptVisitorPageState extends State<AcceptVisitorPage> {
       setState(() {
         visitors.removeWhere((v) => v['id'] == visitorId);
       });
+      _showMessage("🚫 Visitor Rejected!");
     } catch (e) {
-      _showError("Failed to reject visitor: $e");
+      _showMessage("❌ Failed to reject visitor: $e");
     } finally {
       setState(() => processingVisitors.remove(visitorId));
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blueGrey[700],
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _showError(String message) {
