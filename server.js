@@ -395,7 +395,7 @@ app.get("/visitors/:host_name", async (req, res) => {
 
     // ✅ Fetch visitors for this user
     const result = await pool.query(
-      "SELECT * FROM visitors WHERE user_id = $1 AND arrival_time >= NOW() - INTERVAL '10 minutes' AND status = 'pending'",
+      "SELECT * FROM visitors WHERE user_id = $1 AND arrival_time >= NOW() - INTERVAL '10 minutes' AND status = 'Pending'",
       [userId]
     );
 
@@ -420,7 +420,7 @@ app.get('/visitors/recent/:userId', async (req, res) => {
       `SELECT * FROM visitors 
        WHERE user_id = $1 
        AND arrival_time >= NOW() - INTERVAL '10 minutes'
-       AND status = 'pending'
+       AND status = 'Pending'
        ORDER BY arrival_time DESC`,
       [userId]
     );
