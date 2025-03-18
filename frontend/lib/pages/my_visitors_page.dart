@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class MyVisitorsPage extends StatefulWidget {
   final int userId;
 
-  const MyVisitorsPage({super.key, required this.userId}); // ✅ Make userId required
+  const MyVisitorsPage({super.key, required this.userId});
 
   @override
   _MyVisitorsPageState createState() => _MyVisitorsPageState();
@@ -14,7 +14,7 @@ class MyVisitorsPage extends StatefulWidget {
 class _MyVisitorsPageState extends State<MyVisitorsPage> {
   List<Map<String, dynamic>> visitors = [];
   bool isLoading = true;
-  int? userId; // ✅ Store userId
+  int? userId;
 
   @override
   void initState() {
@@ -22,9 +22,9 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
     _loadUserId();
   }
 
-  // ✅ **Load User ID from Shared Preferences**
+  // ✅ Load User ID from Shared Preferences
   Future<void> _loadUserId() async {
-    int storedUserId = await ApiService.getUserId(); // ✅ Get userId from SharedPreferences
+    int storedUserId = await ApiService.getUserId();
     setState(() {
       userId = storedUserId;
     });
@@ -32,7 +32,7 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
     _loadVisitors(storedUserId);
   }
 
-  // ✅ **Load Visitors for User**
+  // ✅ Load Visitors for User
   Future<void> _loadVisitors(int userId) async {
     print("🟡 Loading visitors for userId: $userId");
 
@@ -42,6 +42,25 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
       visitors = fetchedVisitors;
       isLoading = false;
     });
+  }
+
+  // ✅ Delete Visitor
+  Future<void> _deleteVisitor(int visitorId) async {
+    bool success = await ApiService.deleteVisitor(visitorId);
+
+    if (success) {
+      setState(() {
+        visitors.removeWhere((visitor) => visitor['id'] == visitorId);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Visitor deleted successfully!"), backgroundColor: Colors.green),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to delete visitor."), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -59,7 +78,7 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
         color: Colors.lightBlue[100],
         padding: const EdgeInsets.all(16.0),
         child: isLoading
-            ? const Center(child: CircularProgressIndicator()) // ✅ Show loader
+            ? const Center(child: CircularProgressIndicator())
             : visitors.isEmpty
                 ? const Center(
                     child: Text("No visitors found", style: TextStyle(fontSize: 16, color: Colors.blueGrey)),
@@ -67,10 +86,10 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
                 : ListView(
                     children: [
                       SectionTitle(title: "Family"),
-                      VisitorList(visitors: visitors.where((v) => v['category'] == 'Family').toList()),
+                      VisitorList(visitors: visitors.where((v) => v['category'] == 'Family').toList(), onDelete: _deleteVisitor),
                       const SizedBox(height: 20),
                       SectionTitle(title: "Friends/Others"),
-                      VisitorList(visitors: visitors.where((v) => v['category'] != 'Family').toList()),
+                      VisitorList(visitors: visitors.where((v) => v['category'] != 'Family').toList(), onDelete: _deleteVisitor),
                     ],
                   ),
       ),
@@ -78,7 +97,7 @@ class _MyVisitorsPageState extends State<MyVisitorsPage> {
   }
 }
 
-// ✅ **Reusable Section Title Widget**
+// ✅ Section Title Widget
 class SectionTitle extends StatelessWidget {
   final String title;
   const SectionTitle({super.key, required this.title});
@@ -95,10 +114,12 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
-// ✅ **Visitor List Widget**
+// ✅ Visitor List Widget with Delete Button
 class VisitorList extends StatelessWidget {
   final List<Map<String, dynamic>> visitors;
-  const VisitorList({super.key, required this.visitors});
+  final Function(int) onDelete; // Callback function for delete
+
+  const VisitorList({super.key, required this.visitors, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +139,10 @@ class VisitorList extends StatelessWidget {
                   subtitle: Text(
                     visitors[index]['category'] ?? "Unknown",
                     style: TextStyle(color: Colors.blueGrey[600]),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => onDelete(visitors[index]['id']),
                   ),
                 ),
               );

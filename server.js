@@ -281,7 +281,7 @@ app.get("/myvisitors/user/:userId", async (req, res) => {
     console.error("🔥 Error fetching visitors:", error);
     res.status(500).json({ message: "❌ Error fetching visitors", error: error.message });
   }
-}); 
+});
 
 app.post("/myvisitors", async (req, res) => {
   const { userId, name, relation, date, time } = req.body;
@@ -300,6 +300,22 @@ app.post("/myvisitors", async (req, res) => {
   } catch (error) {
     console.error("🔥 Error adding visitor:", error);
     res.status(500).json({ message: "❌ Error adding visitor", error: error.message });
+  }
+});
+
+// ✅ Delete a Visitor
+app.delete("/myvisitors/:id", async (req, res) => {
+  try {
+    const visitorId = req.params.id;
+    const deleteResult = await pool.query("DELETE FROM myvisitors WHERE id = $1", [visitorId]);
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ message: "❌ Visitor not found" });
+    }
+    res.json({ message: "✅ Visitor deleted successfully" });
+  } catch (error) {
+    console.error("🔥 Error deleting visitor:", error);
+    res.status(500).json({ message: "❌ Error deleting visitor", error: error.message });
   }
 });
 
@@ -332,6 +348,153 @@ app.post("/pre-approve", async (req, res) => {
   } catch (error) {
     console.error("🔥 Error in pre-approval:", error);
     res.status(500).json({ message: "❌ Error adding pre-approval", error: error.message });
+  }
+});
+
+app.post("/visitors/add", async (req, res) => {
+  const { host_name, name, relation, reason } = req.body;
+
+  if (!host_name || !name || !relation || !reason) {
+    return res.status(400).json({ message: "❌ Missing required fields" });
+  }
+
+  try {
+    // ✅ Find user_id from host_name
+    const userQuery = await pool.query(
+      "SELECT id FROM users WHERE firstName || ' ' || lastName = $1",
+      [host_name]
+    );
+
+    if (userQuery.rows.length === 0) {
+      return res.status(404).json({ message: "❌ Host not found" });
+    }
+
+    const userId = userQuery.rows[0].id;
+
+    // ✅ Insert visitor request with mapped user_id
+    const result = await pool.query(
+      "INSERT INTO visitors (host_name, user_id, name, relation, reason, arrival_time, status) VALUES ($1, $2, $3, $4, $5, NOW(), 'Pending') RETURNING *",
+      [host_name, userId, name, relation, reason]
+    );
+
+    res.json({ message: "✅ Visitor added successfully!", data: result.rows[0] });
+  } catch (error) {
+    console.error("🔥 Error adding visitor:", error);
+    res.status(500).json({ message: "❌ Error adding visitor", error: error.message });
+  }
+});
+
+app.get('/visitors', async (req, res) => {
+  try {
+      const result = await pool.query("SELECT * FROM visitors"); 
+      console.log("Query Result:", result.rows); // Debugging output
+
+      res.json(result.rows); // Use result.rows for PostgreSQL
+  } catch (error) {
+      console.error("Error fetching visitors:", error);
+      res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/visitors/:host_name", async (req, res) => {
+  const hostName = req.params.host_name;
+  console.log(`🟡 Fetching visitors for host: ${hostName}`);
+
+  try {
+    // ✅ Find user_id for the given host name
+    const userQuery = await pool.query(
+      "SELECT id FROM users WHERE firstName || ' ' || lastName = $1",
+      [hostName]
+    );
+
+    if (userQuery.rows.length === 0) {
+      return res.status(404).json({ message: "❌ Host not found" });
+    }
+
+    const userId = userQuery.rows[0].id;
+
+    // ✅ Fetch visitors for this user
+    const result = await pool.query(
+      "SELECT * FROM visitors WHERE user_id = $1 AND arrival_time >= NOW() - INTERVAL '10 minutes'",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      console.log("❌ No recent visitors found");
+      return res.status(404).json({ message: "❌ No recent visitors found" });
+    }
+
+    console.log("✅ Visitors found:", result.rows);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("🔥 Error fetching visitors:", error);
+    res.status(500).json({ message: "❌ Error fetching visitors", error: error.message });
+  }
+});
+
+app.get('/visitors/recent/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const [rows] = await pool.query(
+      "SELECT * FROM visitors WHERE user_id = ? ORDER BY arrival_time DESC LIMIT 10",
+      [userId]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("🔥 Error fetching recent visitors:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/visitors/:id/status", async (req, res) => {
+  const { status } = req.body; // 'Accepted' or 'Rejected'
+  const visitorId = req.params.id;
+
+  if (status !== "Accepted" && status !== "Rejected") {
+    return res.status(400).json({ message: "❌ Invalid status value" });
+  }
+
+  try {
+    // ✅ Update visitor status
+    const result = await pool.query(
+      "UPDATE visitors SET status = $1 WHERE id = $2 RETURNING *",
+      [status, visitorId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "❌ Visitor not found" });
+    }
+
+    const visitor = result.rows[0];
+
+    // ✅ If Accepted, add to `myvisitors`
+    if (status === "Accepted") {
+      await pool.query(
+        "INSERT INTO myvisitors (user_id, name, relation, created_at) VALUES ($1, $2, $3, NOW())",
+        [visitor.user_id, visitor.name, visitor.relation]
+      );
+    }
+
+    res.json({ message: `✅ Visitor ${status} successfully!`, visitor });
+  } catch (error) {
+    console.error("🔥 Error updating visitor status:", error);
+    res.status(500).json({ message: "❌ Error updating visitor status", error: error.message });
+  }
+});
+
+app.post("/myvisitors/add", async (req, res) => {
+  const { userId, name, relation } = req.body;
+
+  try {
+    const result = await pool.query(
+      "INSERT INTO myvisitors (user_id, name, category, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *",
+      [userId, name, relation]
+    );
+
+    res.json({ message: "✅ Visitor added to My Visitors!", data: result.rows[0] });
+  } catch (error) {
+    console.error("🔥 Error adding visitor:", error);
+    res.status(500).json({ message: "❌ Error adding visitor", error: error.message });
   }
 });
 

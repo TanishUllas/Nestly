@@ -59,7 +59,8 @@ class MyApp extends StatelessWidget {
           case '/callGuard':
             return MaterialPageRoute(builder: (_) => CallGuardPage());
           case '/acceptVisitor':
-            return MaterialPageRoute(builder: (_) => AcceptVisitorPage());
+            final int? passedUserId = settings.arguments as int?;
+            return MaterialPageRoute(builder: (_) => AcceptVisitorPage(userId: passedUserId ?? 0));
           case '/preApproval':
             final int? passedUserId = settings.arguments as int?;
             return MaterialPageRoute(builder: (_) => PreApprovalPage(userId: passedUserId ?? 0));

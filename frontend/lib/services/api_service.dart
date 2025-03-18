@@ -172,11 +172,114 @@ class ApiService {
     }
   }
 
-  // ✅ Normalize Date Format (YYYY-MM-DD)
-static String formatDate(String? dateString) {
-  if (dateString == null || dateString.isEmpty) return "";
-  return dateString.split("T")[0]; // Removes time part
+  // ✅ Delete a visitor
+static Future<bool> deleteVisitor(int visitorId) async {
+  final Uri url = Uri.parse("$apiUrl/myvisitors/$visitorId");
+  final String? token = await _getToken();
+
+  if (token == null) {
+    print("❌ No token found");
+    return false;
+  }
+
+  try {
+    final response = await http.delete(
+      url,
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    print("🔵 Delete Response: ${response.statusCode}");
+
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      print("❌ Failed to delete visitor: ${response.body}");
+      return false;
+    }
+  } catch (error) {
+    print("🔥 Error deleting visitor: $error");
+    return false;
+  }
 }
+
+// ✅ Fetch visitors who arrived in the last 10 minutes
+static Future<List<Map<String, dynamic>>> fetchRecentVisitors(int userId) async {
+  final Uri url = Uri.parse("$apiUrl/visitors/recent/$userId");
+  final String? token = await _getToken();
+
+  try {
+    final response = await http.get(
+      url,
+      headers: {"Authorization": "Bearer $token"},
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonData = jsonDecode(response.body);
+      
+      // Ensure data is a list of maps
+      if (jsonData is List) {
+        return jsonData.cast<Map<String, dynamic>>();
+      } else {
+        print("🚨 Unexpected response format: $jsonData");
+        return [];
+      }
+    } else {
+      print("❌ Failed to fetch visitors: ${response.statusCode} - ${response.body}");
+      return [];
+    }
+  } catch (error) {
+    print("🔥 Error fetching recent visitors: $error");
+    return [];
+  }
+}
+
+static Future<bool> updateVisitorStatus(int visitorId, String status) async {
+  final Uri url = Uri.parse("$apiUrl/visitors/$visitorId/status");
+  final String? token = await _getToken();
+
+  try {
+    final response = await http.put(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token"
+      },
+      body: jsonEncode({"status": status}),
+    );
+
+    if (response.statusCode == 200) {
+      print("✅ Visitor status updated successfully");
+      return true;
+    } else {
+      print("❌ Failed to update visitor status: ${response.statusCode} - ${response.body}");
+      return false;
+    }
+  } catch (error) {
+    print("🔥 Error updating visitor status: $error");
+    return false;
+  }
+}
+
+static Future<void> addToMyVisitors(int userId, String name, String relation) async {
+  final Uri url = Uri.parse("$apiUrl/myvisitors/add");
+  final String? token = await _getToken();
+
+  try {
+    await http.post(
+      url,
+      headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
+      body: jsonEncode({"user_id": userId, "name": name, "relation": relation}), // ✅ Corrected "user_id"
+    );
+  } catch (error) {
+    print("🔥 Error adding visitor to My Visitors: $error");
+  }
+}
+
+  // ✅ Normalize Date Format (YYYY-MM-DD)
+  static String formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return "";
+    return dateString.split("T")[0]; // Removes time part
+  }
 
   // ✅ Get User ID from SharedPreferences
   static Future<int> getUserId() async {
