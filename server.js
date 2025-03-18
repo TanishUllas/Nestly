@@ -434,13 +434,14 @@ app.get("/visitors/:host_name", async (req, res) => {
 
 app.get('/visitors/recent/:userId', async (req, res) => {
   try {
-    const userId = req.params.userId;
-    const [rows] = await pool.query(
-      "SELECT * FROM visitors WHERE user_id = ? ORDER BY arrival_time DESC LIMIT 10",
+    const userId = parseInt(req.params.userId); // Ensure it's an integer
+
+    const result = await pool.query(
+      `SELECT * FROM visitors WHERE user_id = $1 ORDER BY arrival_time DESC LIMIT 10`, 
       [userId]
     );
 
-    res.json(rows);
+    res.json(result.rows); // PostgreSQL returns data inside `result.rows`
   } catch (error) {
     console.error("🔥 Error fetching recent visitors:", error);
     res.status(500).json({ error: error.message });
