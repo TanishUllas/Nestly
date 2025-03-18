@@ -225,26 +225,6 @@ app.get("/myvisitors", async (req, res) => {
   }
 });
 
-app.post("/myvisitors/add", async (req, res) => {
-  const { userId, name, relation, date, time } = req.body;
-
-  if (!userId || !name || !relation || !date || !time) {
-    return res.status(400).json({ message: "❌ Missing required fields" });
-  }
-
-  try {
-    const result = await pool.query(
-      "INSERT INTO myvisitors (user_id, name, category, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *",
-      [userId, name, relation]
-    );
-
-    res.json({ message: "✅ Visitor added successfully!", data: result.rows[0] });
-  } catch (error) {
-    console.error("🔥 Error adding visitor:", error);
-    res.status(500).json({ message: "❌ Error adding visitor", error: error.message });
-  }
-});
-
 // ✅ Delete a `myvisitor`
 app.delete("/myvisitors/:id", async (req, res) => {
   try {
@@ -437,7 +417,10 @@ app.get('/visitors/recent/:userId', async (req, res) => {
     const userId = parseInt(req.params.userId); // Ensure it's an integer
 
     const result = await pool.query(
-      `SELECT * FROM visitors WHERE user_id = $1 ORDER BY arrival_time DESC LIMIT 10`, 
+      `SELECT * FROM visitors 
+       WHERE user_id = $1 
+       AND arrival_time >= NOW() - INTERVAL '10 minutes'
+       ORDER BY arrival_time DESC`,
       [userId]
     );
 
@@ -449,7 +432,8 @@ app.get('/visitors/recent/:userId', async (req, res) => {
 });
 
 app.put("/visitors/:id/status", async (req, res) => {
-  const { status } = req.body; // 'Accepted' or 'Rejected'
+  const { status, addToMyVisitors } = req.body; // 'Accepted', 'Rejected' + optional flag for adding
+
   const visitorId = req.params.id;
 
   if (status !== "Accepted" && status !== "Rejected") {
@@ -457,7 +441,7 @@ app.put("/visitors/:id/status", async (req, res) => {
   }
 
   try {
-    // ✅ Update visitor status
+    // ✅ Update visitor status in `visitors` table
     const result = await pool.query(
       "UPDATE visitors SET status = $1 WHERE id = $2 RETURNING *",
       [status, visitorId]
@@ -469,11 +453,11 @@ app.put("/visitors/:id/status", async (req, res) => {
 
     const visitor = result.rows[0];
 
-    // ✅ If Accepted, add to `myvisitors`
-    if (status === "Accepted") {
+    // ✅ If Accept & Add button is clicked, add to `myvisitors`
+    if (status === "Accepted" && addToMyVisitors) {
       await pool.query(
-        "INSERT INTO myvisitors (user_id, name, relation, created_at) VALUES ($1, $2, $3, NOW())",
-        [visitor.user_id, visitor.name, visitor.relation]
+        "INSERT INTO myvisitors (user_id, name, category, created_at) VALUES ($1, $2, $3, NOW())",
+        [visitor.user_id, visitor.name, visitor.category] // ✅ Use `category` instead of `relation`
       );
     }
 
@@ -485,18 +469,16 @@ app.put("/visitors/:id/status", async (req, res) => {
 });
 
 app.post("/myvisitors/add", async (req, res) => {
-  const { userId, name, relation } = req.body;
-
+  const { user_id, name, category } = req.body; // ✅ Ensure 'category' is used
   try {
     const result = await pool.query(
-      "INSERT INTO myvisitors (user_id, name, category, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *",
-      [userId, name, relation]
+      "INSERT INTO myvisitors (user_id, name, category) VALUES ($1, $2, $3) RETURNING *",
+      [user_id, name, category]
     );
-
-    res.json({ message: "✅ Visitor added to My Visitors!", data: result.rows[0] });
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error("🔥 Error adding visitor:", error);
-    res.status(500).json({ message: "❌ Error adding visitor", error: error.message });
+    console.error("❌ Error adding visitor:", error);
+    res.status(500).json({ message: "Error adding visitor", error: error.message });
   }
 });
 

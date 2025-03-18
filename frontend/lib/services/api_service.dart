@@ -173,7 +173,7 @@ class ApiService {
   }
 
   // ✅ Delete a visitor
-static Future<bool> deleteVisitor(int visitorId) async {
+  static Future<bool> deleteVisitor(int visitorId) async {
   final Uri url = Uri.parse("$apiUrl/myvisitors/$visitorId");
   final String? token = await _getToken();
 
@@ -240,18 +240,23 @@ static Future<bool> updateVisitorStatus(int visitorId, String status) async {
   try {
     final response = await http.put(
       url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-      body: jsonEncode({"status": status}),
+      headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
+      body: jsonEncode({"status": status}), // ✅ Only updating status
     );
 
+    print("🔵 API Response: ${response.statusCode} - ${response.body}");
+
     if (response.statusCode == 200) {
-      print("✅ Visitor status updated successfully");
+      print("✅ Visitor status updated to $status successfully");
+
+      // ✅ Only add to "My Visitors" if accepted
+      if (status == "Accepted") {
+        print("✅ Visitor accepted. Now adding to My Visitors...");
+        return true;
+      }
       return true;
     } else {
-      print("❌ Failed to update visitor status: ${response.statusCode} - ${response.body}");
+      print("❌ Failed to update visitor status: ${response.body}");
       return false;
     }
   } catch (error) {
@@ -260,20 +265,67 @@ static Future<bool> updateVisitorStatus(int visitorId, String status) async {
   }
 }
 
-static Future<void> addToMyVisitors(int userId, String name, String relation) async {
-  final Uri url = Uri.parse("$apiUrl/myvisitors/add");
+  static Future<bool> acceptAndAddVisitor(int visitorId, int userId) async {
+  final Uri updateUrl = Uri.parse("$apiUrl/update-visitor-status");
+  final Uri insertUrl = Uri.parse("$apiUrl/accept-and-add-visitor");
   final String? token = await _getToken();
 
+  if (token == null) {
+    print("❌ No token found.");
+    return false;
+  }
+
   try {
-    await http.post(
-      url,
+    // ✅ Step 1: Update Visitor Status
+    final updateResponse = await http.post(
+      updateUrl,
       headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
-      body: jsonEncode({"user_id": userId, "name": name, "relation": relation}), // ✅ Corrected "user_id"
+      body: jsonEncode({"visitorId": visitorId, "status": "Accepted"}),
     );
+
+    if (updateResponse.statusCode != 200) {
+      print("❌ Failed to update visitor status: ${updateResponse.body}");
+      return false;
+    }
+
+    print("✅ Visitor status updated. Now inserting into myvisitors...");
+
+    // ✅ Step 2: Insert into My Visitors
+    final insertResponse = await http.post(
+      insertUrl,
+      headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
+      body: jsonEncode({"visitorId": visitorId, "userId": userId}),
+    );
+
+    if (insertResponse.statusCode == 200) {
+      print("✅ Visitor successfully added to My Visitors.");
+      return true;
+    } else {
+      print("❌ Failed to add visitor to My Visitors: ${insertResponse.body}");
+      return false;
+    }
   } catch (error) {
-    print("🔥 Error adding visitor to My Visitors: $error");
+    print("🔥 Error in acceptAndAddVisitor: $error");
+    return false;
   }
 }
+
+  // ✅ Add Visitor to My Visitors
+  static Future<bool> addToMyVisitors(int userId, String name, String category) async {
+    final Uri url = Uri.parse("$apiUrl/myvisitors/add");
+    final String? token = await _getToken();
+    if (token == null) return false;
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
+        body: jsonEncode({"user_id": userId, "name": name, "category": category}),
+      );
+      return response.statusCode == 200;
+    } catch (error) {
+      return false;
+    }
+  }
 
   // ✅ Normalize Date Format (YYYY-MM-DD)
   static String formatDate(String? dateString) {
