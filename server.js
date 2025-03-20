@@ -28,6 +28,35 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+require("dotenv").config(); // Load environment variables
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+const sendMail = async (to, subject, text) => {
+  if (!to) {
+    console.error("🔥 Error: Recipient email is missing!");
+    return;
+  }
+
+  try {
+    let info = await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to, // Ensure this is correctly passed
+      subject,
+      text,
+    });
+    console.log("✅ Email sent successfully:", info.response);
+  } catch (error) {
+    console.error("🔥 Error sending email:", error);
+  }
+};
+
 // ✅ Root Route Check
 app.get("/", (req, res) => {
   res.json({ message: "✅ API is running successfully!" });
@@ -487,37 +516,23 @@ app.post("/send-email", async (req, res) => {
   const { subject, message } = req.body;
 
   if (!subject || !message) {
-    return res.status(400).json({ message: "❌ Subject and message are required." });
+    return res.status(400).json({ message: "❌ Subject and message required" });
   }
 
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: "nestlyindia@gmail.com", 
+    subject: subject,
+    text: message,
+  };
+
   try {
-    // ✅ Configure Nodemailer
-    let transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      logger: true,  
-      debug: true,
-    });
-
-    // ✅ Define mailOptions inside the request handler (Fixes `req` error)
-    let mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: "nestlyindia@gmail.com",
-      subject: subject,
-      text: message,
-    };
-
-    // ✅ Send Email
-    let info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent: " + info.response);
-    res.json({ message: "✅ Email sent successfully!" });
-
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Email Sent:", info.response);
+    res.status(200).json({ message: "✅ SOS alert sent successfully" });
   } catch (error) {
     console.error("🔥 Error sending email:", error);
-    res.status(500).json({ message: "❌ Failed to send email.", error: error.message });
+    res.status(500).json({ message: "❌ Failed to send email", error: error.toString() });
   }
 });
 
